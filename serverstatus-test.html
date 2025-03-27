@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Stats</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #stats { background: #f5f5f5; padding: 15px; border-radius: 5px; }
+        pre { background: #eee; padding: 10px; overflow: auto; }
+        button { padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Server Statistics</h1>
+    <button id="refresh">Refresh Stats</button>
+    <div id="stats">Loading...</div>
+    
+    <script>
+        const SERVER_IP = "192.168.56.1"; // USE YOUR SERVER IP
+        const SERVER_PORT = 3000;
+        
+        async function fetchStats() {
+            try {
+                const response = await fetch(`http://${SERVER_IP}:${SERVER_PORT}/stats`);
+                const data = await response.json();
+                document.getElementById('stats').innerHTML = 
+                    `<h2>Active Connections: ${data.activeConnections}</h2>
+                     <h3>Connected Clients:</h3>
+                     <pre>${JSON.stringify(data.clientList, null, 2)}</pre>
+                     <h3>Player Data:</h3>
+                     <pre>${JSON.stringify(data.players, null, 2)}</pre>
+                     <p>Server time: ${data.serverTime}</p>`;
+            } catch (error) {
+                document.getElementById('stats').textContent = 
+                    `Error fetching stats: ${error.message}`;
+            }
+        }
+        
+        document.getElementById('refresh').addEventListener('click', fetchStats);
+        fetchStats();
+    </script>
+</body>
+</html>

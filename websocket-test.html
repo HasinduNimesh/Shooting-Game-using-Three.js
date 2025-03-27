@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advanced WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
+        input, button { padding: 8px; margin: 5px; }
+        .connected { background-color: #dff0d8; }
+        .error { background-color: #f2dede; }
+    </style>
+</head>
+<body>
+    <h1>Advanced WebSocket Test</h1>
+    <div id="status">Status: Disconnected</div>
+    <div id="log"></div>
+    
+    <div>
+        <input type="text" id="server-ip" value="192.168.56.1" placeholder="Server IP">
+        <input type="text" id="server-port" value="3000" placeholder="Port">
+        <button id="connect-btn">Connect</button>
+        <button id="disconnect-btn">Disconnect</button>
+    </div>
+    
+    <div>
+        <input type="text" id="player-name" value="TestPlayer" placeholder="Player Name">
+        <button id="send-name-btn">Send Name</button>
+    </div>
+    
+    <div>
+        <input type="text" id="message-type" value="updateName" placeholder="Message Type">
+        <input type="text" id="message-data" value='{"name":"TestPlayer"}' placeholder="Message Data (JSON)">
+        <button id="send-message-btn">Send Custom Message</button>
+    </div>
+    
+    <script>
+        let socket;
+        const log = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+        
+        function addLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (isError) entry.style.color = 'red';
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStatus(message, isConnected = false) {
+            statusEl.textContent = `Status: ${message}`;
+            statusEl.className = isConnected ? 'connected' : '';
+        }
+        
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const ip = document.getElementById('server-ip').value;
+            const port = document.getElementById('server-port').value;
+            const url = `ws://${ip}:${port}`;
+            
+            try {
+                socket = new WebSocket(url);
+                
+                socket.onopen = function() {
+                    updateStatus('Connected', true);
+                    addLog(`Connected to ${url}`);
+                };
+                
+                socket.onmessage = function(event) {
+                    addLog(`Received: ${event.data}`);
+                    
+                    try {
+                        const data = JSON.parse(event.data);
+                        addLog(`Parsed: ${JSON.stringify(data, null, 2)}`);
+                    } catch (e) {
+                        addLog(`Not JSON: ${e.message}`, true);
+                    }
+                };
+                
+                socket.onerror = function(error) {
+                    updateStatus('Error');
+                    addLog(`WebSocket error: ${error}`, true);
+                };
+                
+                socket.onclose = function(event) {
+                    updateStatus(`Closed (Code: ${event.code}, Reason: ${event.reason || 'None'})`);
+                    addLog(`Connection closed. Code: ${event.code}, Reason: ${event.reason || 'None'}`);
+                };
+            } catch (error) {
+                updateStatus('Failed to create connection');
+                addLog(`Connection error: ${error.message}`, true);
+            }
+        });
+        
+        document.getElementById('disconnect-btn').addEventListener('click', () => {
+            if (socket) {
+                socket.close();
+                addLog('Manually disconnected');
+            }
+        });
+        
+        document.getElementById('send-name-btn').addEventListener('click', () => {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                addLog('Not connected, cannot send message', true);
+                return;
+            }
+            
+            const name = document.getElementById('player-name').value;
+            const message = {
+                type: 'updateName',
+                name: name
+            };
+            
+            try {
+                socket.send(JSON.stringify(message));
+                addLog(`Sent name update: ${name}`);
+            } catch (error) {
+                addLog(`Error sending name: ${error.message}`, true);
+            }
+        });
+        
+        document.getElementById('send-message-btn').addEventListener('click', () => {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                addLog('Not connected, cannot send message', true);
+                return;
+            }
+            
+            try {
+                const type = document.getElementById('message-type').value;
+                const dataStr = document.getElementById('message-data').value;
+                let dataObj = {};
+                
+                try {
+                    dataObj = JSON.parse(dataStr);
+                } catch (e) {
+                    addLog(`Invalid JSON data: ${e.message}`, true);
+                    return;
+                }
+                
+                const message = {
+                    type: type,
+                    ...dataObj
+                };
+                
+                socket.send(JSON.stringify(message));
+                addLog(`Sent message type: ${type}, data: ${JSON.stringify(dataObj)}`);
+            } catch (error) {
+                addLog(`Error sending message: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>
