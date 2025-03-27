@@ -305,11 +305,27 @@ if (window.chatSystemInitialized) {
         return false;
     }
     
-    // Send chat message to server
-    function sendChatMessage(text) {
-        // Try all possible socket references to ensure message goes through
-        let socketSent = false;
-        
+// Replace the sendChatMessage function in complete-chat-fix.js
+function sendChatMessage(text) {
+    // Try to get the active socket using our helper function
+    let activeSocket = window.getActiveSocket ? window.getActiveSocket() : null;
+    let socketSent = false;
+    
+    if (activeSocket) {
+        try {
+            activeSocket.send(JSON.stringify({
+                type: 'chatMessage',
+                message: text
+            }));
+            socketSent = true;
+            chatLog("Message sent via active socket");
+        } catch (error) {
+            console.error("Error sending via active socket:", error);
+        }
+    }
+    
+    // Fall back to original connection attempts if the helper didn't work
+    if (!socketSent) {
         // Try the standard multiplayer socket
         if (window.socket && window.socket.readyState === WebSocket.OPEN) {
             window.socket.send(JSON.stringify({
@@ -317,7 +333,7 @@ if (window.chatSystemInitialized) {
                 message: text
             }));
             socketSent = true;
-            logChat("Message sent via window.socket");
+            chatLog("Message sent via window.socket");
         }
         
         // Try gameSocket if available
@@ -327,7 +343,7 @@ if (window.chatSystemInitialized) {
                 message: text
             }));
             socketSent = true;
-            logChat("Message sent via window.gameSocket");
+            chatLog("Message sent via window.gameSocket");
         }
         
         // Try multiplayerDebug socket if available
@@ -338,15 +354,26 @@ if (window.chatSystemInitialized) {
                 message: text
             }));
             socketSent = true;
-            logChat("Message sent via window.multiplayerDebug.socket");
-        }
-        
-        if (!socketSent) {
-            console.error("Failed to send chat message: No open WebSocket connection found");
-            addSystemMessage("⚠️ Failed to send - No connection");
+            chatLog("Message sent via window.multiplayerDebug.socket");
         }
     }
     
+    if (!socketSent) {
+        console.error("Failed to send chat message: No open WebSocket connection found");
+        
+        // Add error message to chat
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            const errorMsg = document.createElement('div');
+            errorMsg.textContent = "⚠️ Failed to send message - No connection";
+            errorMsg.style.color = '#ff0000';
+            errorMsg.style.padding = '5px';
+            errorMsg.style.marginBottom = '5px';
+            chatMessages.appendChild(errorMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+}
     // ---------- WEBSOCKET HANDLING ----------
     
     // Override WebSocket message handling for chat messages

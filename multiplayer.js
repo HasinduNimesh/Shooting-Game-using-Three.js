@@ -58,16 +58,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add chat button
     addChatButton();
     
-    // Wait a bit to check if direct-websocket.js has established a connection
-    setTimeout(() => {
-        if (window.gameSocket) {
-            debugLog('Found existing WebSocket connection from direct-websocket.js');
+    // Try to find existing WebSocket connection first
+    let connectionCheckInterval = setInterval(() => {
+        if (window.gameSocket && window.gameSocket.readyState === WebSocket.OPEN) {
+            debugLog("Using existing WebSocket connection");
             socket = window.gameSocket;
             setupSocketEventHandlers();
+            clearInterval(connectionCheckInterval);
+        } else if (connectionAttempts >= 3) {
+            // No existing connection found after 3 attempts, create our own
+            debugLog("No existing connection found, initializing new connection");
+            clearInterval(connectionCheckInterval);
+            
+            // Wait for game to be fully initialized before connecting
+            waitForGameInit();
+        } else {
+            connectionAttempts++;
+            debugLog(`Looking for existing WebSocket (attempt ${connectionAttempts})`);
         }
-        
-        // Wait for game to be fully initialized before connecting
-        waitForGameInit();
     }, 1000);
 });
 
@@ -79,6 +87,7 @@ function waitForGameInit() {
     
     // Wait until the game is fully initialized with all required components
     if (typeof gameState !== 'undefined' && 
+        typeof playerCollider !== 'undefined' && 
         typeof window.shoot !== 'undefined' && 
         typeof window.damageEnemy !== 'undefined') {
         
@@ -95,6 +104,12 @@ function waitForGameInit() {
         
         // Finally connect to the server
         initMultiplayer();
+        
+        // Set up enhanced rendering and other improvements
+        setTimeout(enhancePlayerRendering, 3000);
+        setTimeout(improvePositionSynchronization, 3000);
+        setTimeout(integrateChatSystems, 5000);
+        addNetworkDebugger();
     } else {
         debugLog('Waiting for game initialization...');
         setTimeout(waitForGameInit, 500);
@@ -212,7 +227,7 @@ function overrideGameFunctions() {
         const result = originalSpawnEnemy.apply(this, arguments);
         
         // Add unique ID to the enemy that was just created
-        if (enemies.length > 0) {
+        if (enemies && enemies.length > 0) {
             const lastEnemy = enemies[enemies.length - 1];
             if (!lastEnemy.id) {
                 lastEnemy.id = 'enemy_' + Math.random().toString(36).substr(2, 9);
@@ -228,7 +243,7 @@ function overrideGameFunctions() {
         const result = originalCreatePickup.apply(this, arguments);
         
         // Add unique ID to the pickup that was just created
-        if (pickups.length > 0) {
+        if (pickups && pickups.length > 0) {
             const lastPickup = pickups[pickups.length - 1];
             if (!lastPickup.id) {
                 lastPickup.id = 'pickup_' + Math.random().toString(36).substr(2, 9);
@@ -256,6 +271,160 @@ function overrideGameFunctions() {
     };
 
     debugLog('Game functions successfully overridden');
+}
+
+// Enhanced player rendering with frustum culling
+function enhancePlayerRendering() {
+    // Make sure THREE.js is loaded before proceeding
+    if (typeof THREE === 'undefined' || !renderer) {
+        debugLog("THREE or renderer not loaded yet, waiting...");
+        setTimeout(enhancePlayerRendering, 500);
+        return;
+    }
+    
+    debugLog("Enhancing player rendering");
+    
+    // Override the renderer's render function to include player models
+    const originalRender = renderer.render;
+    renderer.render = function(scene, camera) {
+        // Update player models visibility based on camera frustum
+        try {
+            const frustum = new THREE.Frustum();
+            frustum.setFromProjectionMatrix(
+                new THREE.Matrix4().multiplyMatrices(
+                    camera.projectionMatrix,
+                    camera.matrixWorldInverse
+                )
+            );
+            
+            // Update each player's visibility and name tag orientation
+            for (const id in otherPlayers) {
+                const player = otherPlayers[id];
+                if (player && player.mesh) {
+                    // Check if player is in view frustum
+                    const inView = frustum.intersectsObject(player.mesh);
+                    player.mesh.visible = inView;
+                    
+                    // Make name tag always face camera
+                    if (player.nameTag) {
+                        player.nameTag.lookAt(camera.position);
+                    }
+                }
+            }
+        } catch (error) {
+            debugLog("Error in enhanced rendering:", error);
+        }
+        
+        // Call original render
+        originalRender.call(this, scene, camera);
+    };
+    
+    debugLog("Enhanced player rendering initialized");
+}
+
+// Improved player position synchronization
+function improvePositionSynchronization() {
+    debugLog("Improving position synchronization");
+    
+    // Replace the existing interpolateOtherPlayers function
+    window.interpolateOtherPlayers = function(deltaTime) {
+        const now = performance.now();
+        
+        for (const id in otherPlayers) {
+            const player = otherPlayers[id];
+            if (!player || !player.mesh) continue;
+            
+            // Calculate interpolation factor based on time since last update
+            const timeSinceUpdate = (now - player.lastUpdate) / 1000;
+            const interpFactor = Math.min(1.0, deltaTime * 10); // Smoother interpolation
+            
+            // Position interpolation
+            player.mesh.position.lerp(player.targetPosition, interpFactor);
+            
+            // Rotation interpolation with damping
+            if (player.head) {
+                player.head.rotation.x = THREE.MathUtils.lerp(
+                    player.head.rotation.x, 
+                    player.targetRotation.x, 
+                    interpFactor * 0.8
+                );
+            }
+            
+            player.mesh.rotation.y = THREE.MathUtils.lerp(
+                player.mesh.rotation.y, 
+                player.targetRotation.y, 
+                interpFactor * 0.8
+            );
+            
+            // Update name tag to face camera
+            if (player.nameTag && camera) {
+                player.nameTag.lookAt(camera.position);
+            }
+        }
+    };
+    
+    debugLog("Improved position synchronization");
+}
+
+// Integrate chat systems
+function integrateChatSystems() {
+    // Check if the complete chat system is available
+    if (window.chatSystem && window.chatSystem.sendTestMessage) {
+        debugLog("Integrating chat with multiplayer system");
+        
+        // Override the chat message sending to use the multiplayer socket
+        const originalSendMessage = window.chatSystem.sendTestMessage;
+        window.chatSystem.sendTestMessage = function(text) {
+            // Call original function
+            originalSendMessage(text);
+            
+            // Also ensure it's sent through multiplayer socket
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'chatMessage',
+                    message: text
+                }));
+                debugLog("Chat message sent through multiplayer socket");
+            }
+            
+            return "Message sent through all channels";
+        };
+        
+        debugLog("Chat integration complete");
+    } else {
+        debugLog("Complete chat system not found, will retry");
+        setTimeout(integrateChatSystems, 1000);
+    }
+}
+
+// Add network debugger function
+function addNetworkDebugger() {
+    window.debugNetwork = function() {
+        console.log("--- Network Debug Info ---");
+        console.log("Socket connected:", socket && socket.readyState === WebSocket.OPEN);
+        console.log("Game socket connected:", window.gameSocket && window.gameSocket.readyState === WebSocket.OPEN);
+        console.log("Player ID:", playerId);
+        console.log("Other players:", Object.keys(otherPlayers).length);
+        console.log("Other players data:", otherPlayers);
+        
+        // Test sending a ping message
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({type: 'ping', timestamp: Date.now()}));
+            console.log("Ping message sent");
+        } else {
+            console.log("Cannot send ping - socket not connected");
+        }
+        
+        // Check for THREE.js and essential game objects
+        console.log("THREE.js loaded:", typeof THREE !== 'undefined');
+        console.log("Camera initialized:", typeof camera !== 'undefined');
+        console.log("Renderer initialized:", typeof renderer !== 'undefined');
+        console.log("Scene initialized:", typeof scene !== 'undefined');
+        
+        return "Network debug complete. See console for details.";
+    };
+    
+    debugLog("Network debugger added. Type debugNetwork() in console to use.");
 }
 
 // Multiplayer UI elements
@@ -359,7 +528,7 @@ function createMultiplayerUI() {
     // Add keyboard shortcuts for chat
     document.addEventListener('keydown', function(event) {
         // T key shortcut
-        if (event.code === 'KeyT' && document.pointerLockElement === renderer.domElement) {
+        if (event.code === 'KeyT' && document.pointerLockElement && typeof renderer !== 'undefined' && document.pointerLockElement === renderer.domElement) {
             // Only trigger when game is active and in pointer lock mode
             console.log("Chat triggered by T key");
             
@@ -442,7 +611,24 @@ window.openChat = function() {
         return "Chat container not found!";
     }
 };
-
+// Add this function to multiplayer.js
+window.getActiveSocket = function() {
+    // Try all possible socket references
+    if (window.socket && window.socket.readyState === WebSocket.OPEN) {
+        return window.socket;
+    }
+    
+    if (window.gameSocket && window.gameSocket.readyState === WebSocket.OPEN) {
+        return window.gameSocket;
+    }
+    
+    if (window.multiplayerDebug && window.multiplayerDebug.socket && 
+        window.multiplayerDebug.socket.readyState === WebSocket.OPEN) {
+        return window.multiplayerDebug.socket;
+    }
+    
+    return null;
+};
 // Add player name field to start screen
 function addPlayerNameField() {
     const startScreen = document.getElementById('start-screen');
@@ -540,24 +726,38 @@ function initMultiplayer() {
             debugLog('Creating new WebSocket connection to:', serverUrl);
             socket = new WebSocket(serverUrl);
             
-            // Add connection opened handler
+            // Add this to the socket's 'open' event handler in initMultiplayer
             socket.addEventListener('open', function(event) {
                 debugLog('Connected to server successfully');
                 updateConnectionStatus('Connected');
                 connectionAttempts = 0;
                 
-                // Send player name immediately after connection
-                debugLog('Sending player name:', playerName);
-                socket.send(JSON.stringify({
-                    type: 'updateName',
-                    name: playerName
-                }));
+                // Make sure all systems can access this socket
+                window.socket = socket;
+                window.gameSocket = socket;
+                
+                // Directly patch the chat system's sendChatMessage function
+                if (window.sendChatMessage) {
+                    const originalSendChatMessage = window.sendChatMessage;
+                    window.sendChatMessage = function(text) {
+                        // Try to send via our multiplayer socket first
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: 'chatMessage',
+                                message: text
+                            }));
+                            console.log("Message sent via multiplayer socket");
+                            return true;
+                        }
+                        
+                        // Fall back to original function if our socket fails
+                        return originalSendChatMessage(text);
+                    };
+                    debugLog("Chat system sendChatMessage function patched");
+                }
                 
                 // Add initial chat message
                 addChatMessage('Connected to game server');
-                
-                // Expose connection for direct-websocket.js to use
-                window.gameSocket = socket;
             });
             
             setupSocketEventHandlers();
@@ -663,7 +863,7 @@ function setupSocketEventHandlers() {
                         
                         // Check if enemy is killed
                         if (targetEnemy.health <= 0) {
-                            killEnemy(targetEnemy);
+                            killEnemy(targetEnemy, true); // true means killed by another player
                         }
                     }
                     break;
@@ -721,7 +921,7 @@ function setupSocketEventHandlers() {
     
     // Connection closed
     socket.addEventListener('close', function(event) {
-        debugLog('Disconnected from server. Code:', event.code, 'Reason:', event.reason);
+        debugLog('Disconnected from server. Code:', event.code, 'Reason:', event.reason || 'None');
         updateConnectionStatus('Disconnected');
         
         // Clear other players
@@ -1062,39 +1262,6 @@ function visualizeOtherPlayerShooting(data) {
     }, 500);
 }
 
-// Interpolate player positions between updates
-function interpolateOtherPlayers(deltaTime) {
-    const now = performance.now();
-    const interpolationFactor = 0.1; // Adjust for smoother/faster interpolation
-    
-    for (const id in otherPlayers) {
-        const player = otherPlayers[id];
-        
-        // Position interpolation
-        player.mesh.position.lerp(player.targetPosition, interpolationFactor);
-        
-        // Rotation interpolation
-        if (player.head) {
-            player.head.rotation.x = THREE.MathUtils.lerp(
-                player.head.rotation.x, 
-                player.targetRotation.x, 
-                interpolationFactor
-            );
-        }
-        
-        player.mesh.rotation.y = THREE.MathUtils.lerp(
-            player.mesh.rotation.y, 
-            player.targetRotation.y, 
-            interpolationFactor
-        );
-        
-        // Update name tag to face camera
-        if (player.nameTag && camera) {
-            player.nameTag.lookAt(camera.position);
-        }
-    }
-}
-
 // Send local player updates to server
 function sendPlayerUpdate() {
     if (!socket || socket.readyState !== WebSocket.OPEN || !playerId) return;
@@ -1195,7 +1362,7 @@ function sendPickupCollected(pickup) {
     
     if (!pickup.id) {
         debugLog('Pickup missing ID');
-        return;
+        pickup.id = 'pickup_' + Math.random().toString(36).substr(2, 9);
     }
     
     const pickupData = {
@@ -1375,6 +1542,9 @@ window.multiplayerDebug = {
             otherPlayerCount: Object.keys(otherPlayers).length,
             name: playerName
         };
+    },
+    debugNetwork: function() {
+        return window.debugNetwork ? window.debugNetwork() : "Debug function not available yet";
     }
 };
 
