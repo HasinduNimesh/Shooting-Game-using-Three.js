@@ -3160,34 +3160,39 @@ function killEnemy(enemy) {
     // =========================
     
     function pauseGame() {
-        gameState.paused = true;
-        
-        // Create pause menu
-        const pauseMenu = document.createElement('div');
-        pauseMenu.id = 'pause-menu';
-        pauseMenu.style.position = 'absolute';
-        pauseMenu.style.top = '50%';
-        pauseMenu.style.left = '50%';
-        pauseMenu.style.transform = 'translate(-50%, -50%)';
-        pauseMenu.style.color = '#fff';
-        pauseMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        pauseMenu.style.padding = '30px';
-        pauseMenu.style.borderRadius = '10px';
-        pauseMenu.style.textAlign = 'center';
-        pauseMenu.style.width = '400px';
-        
-        // Add pause menu content
-        pauseMenu.innerHTML = `
-            <h2 style="font-size: 36px; margin-bottom: 20px;">GAME PAUSED</h2>
-            <p style="font-size: 18px; margin-bottom: 30px;">Click to resume gameplay</p>
-            <p style="font-size: 16px; color: #aaa;">Score: ${gameState.score} | Wave: ${gameState.wave}</p>
-        `;
-        
-        document.body.appendChild(pauseMenu);
-        
-        // Click to resume
-        document.addEventListener('click', resumeGame);
-    }
+    gameState.paused = true;
+
+    // Create pause menu
+    const pauseMenu = document.createElement('div');
+    pauseMenu.id = 'pause-menu';
+    pauseMenu.style.position = 'absolute';
+    pauseMenu.style.top = '50%';
+    pauseMenu.style.left = '50%';
+    pauseMenu.style.transform = 'translate(-50%, -50%)';
+    pauseMenu.style.color = '#fff';
+    pauseMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    pauseMenu.style.padding = '30px';
+    pauseMenu.style.borderRadius = '10px';
+    pauseMenu.style.textAlign = 'center';
+    pauseMenu.style.width = '400px';
+    pauseMenu.style.zIndex = '1000';
+
+    // Add pause menu content
+    pauseMenu.innerHTML = `
+        <h2 style="font-size: 36px; margin-bottom: 20px;">GAME PAUSED</h2>
+        <p style="font-size: 18px; margin-bottom: 30px;">Score: ${gameState.score} | Wave: ${gameState.wave}</p>
+        <button id="resume-button" style="padding: 10px 20px; font-size: 18px; background-color: #ff3333; color: #fff; border: none; border-radius: 5px; cursor: pointer;">Resume Game</button>
+    `;
+
+    document.body.appendChild(pauseMenu);
+
+    // Add event listener to resume button
+    const resumeButton = pauseMenu.querySelector('#resume-button');
+    resumeButton.addEventListener('click', function(event) {
+        event.stopPropagation(); // Optional, for consistency
+        resumeGame();
+    });
+}
     
     function resumeGame() {
         // Check if game is paused
@@ -3321,135 +3326,133 @@ function killEnemy(enemy) {
     }
     
     function showUpgradeMenu() {
-        // Create upgrade menu
-        const upgradeMenu = document.createElement('div');
-        upgradeMenu.id = 'upgrade-menu';
-        upgradeMenu.style.position = 'absolute';
-        upgradeMenu.style.top = '50%';
-        upgradeMenu.style.left = '50%';
-        upgradeMenu.style.transform = 'translate(-50%, -50%)';
-        upgradeMenu.style.width = '700px';
-        upgradeMenu.style.padding = '30px';
-        upgradeMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-        upgradeMenu.style.color = '#ffffff';
-        upgradeMenu.style.borderRadius = '10px';
-        upgradeMenu.style.zIndex = '1000';
-        
-        // Add title
-        const title = document.createElement('h2');
-        title.textContent = 'WEAPON UPGRADES';
-        title.style.textAlign = 'center';
-        title.style.fontSize = '32px';
-        title.style.marginBottom = '20px';
-        title.style.color = '#ff3333';
-        upgradeMenu.appendChild(title);
-        
-        // Display current score
-        const scoreDisplay = document.createElement('div');
-        scoreDisplay.textContent = `Available Points: ${gameState.score}`;
-        scoreDisplay.style.textAlign = 'center';
-        scoreDisplay.style.fontSize = '20px';
-        scoreDisplay.style.marginBottom = '30px';
-        upgradeMenu.appendChild(scoreDisplay);
-        
-        // Add upgrade options for current weapon
-        const weaponName = weapons[gameState.weaponIndex].name;
-        const upgradeOptions = weaponUpgrades[weaponName];
-        
-        if (upgradeOptions) {
-            const upgradeList = document.createElement('div');
-            upgradeList.style.display = 'flex';
-            upgradeList.style.flexDirection = 'column';
-            upgradeList.style.gap = '15px';
-            
-            upgradeOptions.forEach(upgrade => {
-                const upgradeItem = document.createElement('div');
-                upgradeItem.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                upgradeItem.style.padding = '15px';
-                upgradeItem.style.borderRadius = '5px';
-                upgradeItem.style.display = 'flex';
-                upgradeItem.style.justifyContent = 'space-between';
-                upgradeItem.style.alignItems = 'center';
-                
-                const upgradeInfo = document.createElement('div');
-                
-                const upgradeName = document.createElement('div');
-                upgradeName.textContent = upgrade.name;
-                upgradeName.style.fontSize = '20px';
-                upgradeName.style.fontWeight = 'bold';
-                upgradeInfo.appendChild(upgradeName);
-                
-                const upgradeDesc = document.createElement('div');
-                upgradeDesc.textContent = upgrade.description;
-                upgradeDesc.style.fontSize = '16px';
-                upgradeDesc.style.color = '#aaaaaa';
-                upgradeInfo.appendChild(upgradeDesc);
-                
-                upgradeItem.appendChild(upgradeInfo);
-                
-                const buyButton = document.createElement('button');
-                buyButton.textContent = `Buy: ${upgrade.cost}`;
-                buyButton.style.backgroundColor = gameState.score >= upgrade.cost ? '#ff3333' : '#555555';
-                buyButton.style.color = '#ffffff';
-                buyButton.style.border = 'none';
-                buyButton.style.padding = '10px 20px';
-                buyButton.style.borderRadius = '5px';
-                buyButton.style.cursor = gameState.score >= upgrade.cost ? 'pointer' : 'not-allowed';
-                buyButton.disabled = gameState.score < upgrade.cost;
-                
-                buyButton.addEventListener('click', function() {
-                    if (gameState.score >= upgrade.cost) {
-                        // Apply upgrade
-                        const message = upgrade.apply(weapons[gameState.weaponIndex]);
-                        
-                        // Deduct cost
-                        gameState.score -= upgrade.cost;
-                        
-                        // Update score display
-                        scoreDisplay.textContent = `Available Points: ${gameState.score}`;
-                        
-                        // Update button state
-                        buyButton.disabled = true;
-                        buyButton.style.backgroundColor = '#555555';
-                        buyButton.style.cursor = 'not-allowed';
-                        buyButton.textContent = 'Purchased';
-                        
-                        // Show success message
-                        showUpgradeMessage(message);
-                        
-                        // Update HUD
-                        updateHUD();
-                    }
-                });
-                
-                upgradeItem.appendChild(buyButton);
-                upgradeList.appendChild(upgradeItem);
-            });
-            
-            upgradeMenu.appendChild(upgradeList);
-        }
-        
-        // Add continue button
-        const continueButton = document.createElement('button');
-        continueButton.textContent = 'Continue Game';
-        continueButton.style.backgroundColor = '#ff3333';
-        continueButton.style.color = '#ffffff';
-        continueButton.style.border = 'none';
-        continueButton.style.padding = '15px 30px';
-        continueButton.style.borderRadius = '5px';
-        continueButton.style.cursor = 'pointer';
-        continueButton.style.fontSize = '20px';
-        continueButton.style.marginTop = '30px';
-        continueButton.style.width = '100%';
-        
-        continueButton.addEventListener('click', function() {
-            document.body.removeChild(upgradeMenu);
-            resumeGame();
-        });
-        
-        upgradeMenu.appendChild(continueButton);
-        document.body.appendChild(upgradeMenu);
+    // Remove pause menu if it exists
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) {
+        document.body.removeChild(pauseMenu);
     }
+
+    // Create upgrade menu
+    const upgradeMenu = document.createElement('div');
+    upgradeMenu.id = 'upgrade-menu';
+    upgradeMenu.style.position = 'absolute';
+    upgradeMenu.style.top = '50%';
+    upgradeMenu.style.left = '50%';
+    upgradeMenu.style.transform = 'translate(-50%, -50%)';
+    upgradeMenu.style.width = '700px';
+    upgradeMenu.style.padding = '30px';
+    upgradeMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    upgradeMenu.style.color = '#ffffff';
+    upgradeMenu.style.borderRadius = '10px';
+    upgradeMenu.style.zIndex = '1000';
+
+    // Add title
+    const title = document.createElement('h2');
+    title.textContent = 'WEAPON UPGRADES';
+    title.style.textAlign = 'center';
+    title.style.fontSize = '32px';
+    title.style.marginBottom = '20px';
+    title.style.color = '#ff3333';
+    upgradeMenu.appendChild(title);
+
+    // Display current score
+    const scoreDisplay = document.createElement('div');
+    scoreDisplay.textContent = `Available Points: ${gameState.score}`;
+    scoreDisplay.style.textAlign = 'center';
+    scoreDisplay.style.fontSize = '20px';
+    scoreDisplay.style.marginBottom = '30px';
+    upgradeMenu.appendChild(scoreDisplay);
+
+    // Add upgrade options for current weapon
+    const weaponName = weapons[gameState.weaponIndex].name;
+    const upgradeOptions = weaponUpgrades[weaponName];
+
+    if (upgradeOptions) {
+        const upgradeList = document.createElement('div');
+        upgradeList.style.display = 'flex';
+        upgradeList.style.flexDirection = 'column';
+        upgradeList.style.gap = '15px';
+
+        upgradeOptions.forEach(upgrade => {
+            const upgradeItem = document.createElement('div');
+            upgradeItem.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            upgradeItem.style.padding = '15px';
+            upgradeItem.style.borderRadius = '5px';
+            upgradeItem.style.display = 'flex';
+            upgradeItem.style.justifyContent = 'space-between';
+            upgradeItem.style.alignItems = 'center';
+
+            const upgradeInfo = document.createElement('div');
+
+            const upgradeName = document.createElement('div');
+            upgradeName.textContent = upgrade.name;
+            upgradeName.style.fontSize = '20px';
+            upgradeName.style.fontWeight = 'bold';
+            upgradeInfo.appendChild(upgradeName);
+
+            const upgradeDesc = document.createElement('div');
+            upgradeDesc.textContent = upgrade.description;
+            upgradeDesc.style.fontSize = '16px';
+            upgradeDesc.style.color = '#aaaaaa';
+            upgradeInfo.appendChild(upgradeDesc);
+
+            upgradeItem.appendChild(upgradeInfo);
+
+            const buyButton = document.createElement('button');
+            buyButton.textContent = `Buy: ${upgrade.cost}`;
+            buyButton.style.backgroundColor = gameState.score >= upgrade.cost ? '#ff3333' : '#555555';
+            buyButton.style.color = '#ffffff';
+            buyButton.style.border = 'none';
+            buyButton.style.padding = '10px 20px';
+            buyButton.style.borderRadius = '5px';
+            buyButton.style.cursor = gameState.score >= upgrade.cost ? 'pointer' : 'not-allowed';
+            buyButton.disabled = gameState.score < upgrade.cost;
+
+            buyButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from bubbling to document
+                if (gameState.score >= upgrade.cost) {
+                    // Apply upgrade
+                    const message = upgrade.apply(weapons[gameState.weaponIndex]);
+                    gameState.score -= upgrade.cost;
+                    scoreDisplay.textContent = `Available Points: ${gameState.score}`;
+                    buyButton.disabled = true;
+                    buyButton.style.backgroundColor = '#555555';
+                    buyButton.style.cursor = 'not-allowed';
+                    buyButton.textContent = 'Purchased';
+                    showUpgradeMessage(message);
+                    updateHUD();
+                }
+            });
+
+            upgradeItem.appendChild(buyButton);
+            upgradeList.appendChild(upgradeItem);
+        });
+
+        upgradeMenu.appendChild(upgradeList);
+    }
+
+    // Add continue button
+    const continueButton = document.createElement('button');
+    continueButton.textContent = 'Continue Game';
+    continueButton.style.backgroundColor = '#ff3333';
+    continueButton.style.color = '#ffffff';
+    continueButton.style.border = 'none';
+    continueButton.style.padding = '15px 30px';
+    continueButton.style.borderRadius = '5px';
+    continueButton.style.cursor = 'pointer';
+    continueButton.style.fontSize = '20px';
+    continueButton.style.marginTop = '30px';
+    continueButton.style.width = '100%';
+
+    continueButton.addEventListener('click', function(event) {
+        event.stopPropagation(); // Prevent click from bubbling to document
+        document.body.removeChild(upgradeMenu);
+        resumeGame();
+    });
+
+    upgradeMenu.appendChild(continueButton);
+    document.body.appendChild(upgradeMenu);
+}
     
     function showUpgradeMessage(message) {
         const messageElement = document.createElement('div');
@@ -3477,46 +3480,34 @@ function killEnemy(enemy) {
     // =========================
     
     function animate() {
-        requestAnimationFrame(animate);
-        
-        // Calculate delta time
-        const currentTime = performance.now();
-        const deltaTime = Math.min(0.1, (currentTime - lastFrameTime) / 1000); // Cap at 0.1s to prevent large jumps
-        lastFrameTime = currentTime;
-        
-        if (gameState.active && !gameState.paused) {
-            // Update player position
-            updatePlayerPosition(deltaTime);
-            
-            // Update enemies
-            updateEnemies(deltaTime);
-            
-            // Update bullets
-            updateBullets(deltaTime);
-            
-            // Update pickups
-            updatePickups(deltaTime);
-            
-            // Check for pickups
-            checkForPickups();
-            
-            // Update minimap
-            if (minimapCanvas) {
-                updateMinimap(minimapCanvas);
-            }
-            
-            // Gradually heal player over time if not recently damaged
-            if (gameState.health < gameState.maxHealth && currentTime - gameState.lastDamageTime > 10000) {
-                // Heal 5 health per second if not damaged recently
-                gameState.health = Math.min(gameState.maxHealth, gameState.health + 5 * deltaTime);
-                updateHUD();
-            }
+    requestAnimationFrame(animate);
+
+    const currentTime = performance.now();
+    const deltaTime = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
+    lastFrameTime = currentTime;
+
+    if (gameState.active && !gameState.paused) {
+        updatePlayerPosition(deltaTime);
+        updateEnemies(deltaTime);
+        updateBullets(deltaTime);
+        updatePickups(deltaTime);
+        checkForPickups();
+        if (minimapCanvas) {
+            updateMinimap(minimapCanvas);
         }
-        
-        // Render the scene
-        renderer.render(scene, camera);
+        if (gameState.health < gameState.maxHealth && currentTime - gameState.lastDamageTime > 10000) {
+            gameState.health = Math.min(gameState.maxHealth, gameState.health + 5 * deltaTime);
+            updateHUD();
+        }
+        // Check if all enemies are defeated to show upgrade menu
+        if (enemies.length === 0 && gameState.active) {
+            gameState.paused = true; // Pause the game
+            showUpgradeMenu(); // Show upgrade menu, which removes pause menu
+        }
     }
-    
+
+    renderer.render(scene, camera);
+}
     // =========================
     // UTILITY FUNCTIONS
     // =========================
