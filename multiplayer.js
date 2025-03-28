@@ -1489,7 +1489,7 @@ function addChatButton() {
     chatButton.id = 'chat-button';
     chatButton.textContent = 'CHAT (T)';
     chatButton.style.position = 'absolute';
-    chatButton.style.bottom = '20px';
+    chatButton.style.bottom = '80px';
     chatButton.style.left = '20px';
     chatButton.style.padding = '10px 20px';
     chatButton.style.backgroundColor = 'rgba(255, 50, 50, 0.9)'; // Brighter red with more opacity
@@ -1550,3 +1550,27 @@ window.multiplayerDebug = {
 
 // Log that we've loaded successfully
 debugLog('Multiplayer module loaded and ready. Server URL:', serverUrl);
+
+// Add this function to your multiplayer.js or include it in a script tag in your HTML
+function adjustChatButtonPosition() {
+    // Find the chat button
+    const chatButton = document.getElementById('chat-button');
+    
+    if (chatButton) {
+        // Move it higher up
+        chatButton.style.bottom = '80px'; // Adjust this value as needed
+        console.log("Chat button position adjusted");
+    } else {
+        // If button isn't found yet, try again shortly
+        setTimeout(adjustChatButtonPosition, 1000);
+    }
+}
+
+// Call this function when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a moment for other scripts to create the button first
+    setTimeout(adjustChatButtonPosition, 2000);
+});
+
+// Also try to adjust any existing buttons immediately
+adjustChatButtonPosition();

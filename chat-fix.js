@@ -162,8 +162,7 @@ function setupChatSystem() {
     
     // Ensure the chat toggle works correctly
     document.addEventListener('keydown', function(event) {
-        if ((event.key === 't' || event.key === 'T') && 
-            document.pointerLockElement === renderer.domElement) {
+        if (document.pointerLockElement && typeof renderer !== 'undefined' && document.pointerLockElement === renderer.domElement) {
             chatLog("T key pressed while game is focused");
             
             // Exit pointer lock
